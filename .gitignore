@@ -67,6 +67,9 @@ apps/ios/*.dSYM.zip
 # provisioning profiles (local)
 apps/ios/*.mobileprovision
 
+# Docs (excluded from public repo)
+docs/
+
 # Local untracked files
 .local/
 docs/.local/

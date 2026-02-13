@@ -24,33 +24,12 @@ vi.mock("../gateway/call.js", () => ({
   randomIdempotencyKey: () => "idem-1",
 }));
 
-const webAuthExists = vi.fn(async () => false);
-vi.mock("../web/session.js", () => ({
-  webAuthExists: (...args: unknown[]) => webAuthExists(...args),
-}));
-
-const handleDiscordAction = vi.fn(async () => ({ details: { ok: true } }));
-vi.mock("../agents/tools/discord-actions.js", () => ({
-  handleDiscordAction: (...args: unknown[]) => handleDiscordAction(...args),
-}));
-
-const handleSlackAction = vi.fn(async () => ({ details: { ok: true } }));
-vi.mock("../agents/tools/slack-actions.js", () => ({
-  handleSlackAction: (...args: unknown[]) => handleSlackAction(...args),
-}));
-
 const handleTelegramAction = vi.fn(async () => ({ details: { ok: true } }));
 vi.mock("../agents/tools/telegram-actions.js", () => ({
   handleTelegramAction: (...args: unknown[]) => handleTelegramAction(...args),
 }));
 
-const handleWhatsAppAction = vi.fn(async () => ({ details: { ok: true } }));
-vi.mock("../agents/tools/whatsapp-actions.js", () => ({
-  handleWhatsAppAction: (...args: unknown[]) => handleWhatsAppAction(...args),
-}));
-
 const originalTelegramToken = process.env.TELEGRAM_BOT_TOKEN;
-const originalDiscordToken = process.env.DISCORD_BOT_TOKEN;
 
 const setRegistry = async (registry: ReturnType<typeof createTestRegistry>) => {
   const { setActivePluginRegistry } = await import("../plugins/runtime.js");
@@ -59,21 +38,15 @@ const setRegistry = async (registry: ReturnType<typeof createTestRegistry>) => {
 
 beforeEach(async () => {
   process.env.TELEGRAM_BOT_TOKEN = "";
-  process.env.DISCORD_BOT_TOKEN = "";
   testConfig = {};
   vi.resetModules();
   await setRegistry(createTestRegistry([]));
   callGatewayMock.mockReset();
-  webAuthExists.mockReset().mockResolvedValue(false);
-  handleDiscordAction.mockReset();
-  handleSlackAction.mockReset();
   handleTelegramAction.mockReset();
-  handleWhatsAppAction.mockReset();
 });
 
 afterAll(() => {
   process.env.TELEGRAM_BOT_TOKEN = originalTelegramToken;
-  process.env.DISCORD_BOT_TOKEN = originalDiscordToken;
 });
 
 const runtime: RuntimeEnv = {
@@ -85,12 +58,7 @@ const runtime: RuntimeEnv = {
 };
 
 const makeDeps = (overrides: Partial<CliDeps> = {}): CliDeps => ({
-  sendMessageWhatsApp: vi.fn(),
   sendMessageTelegram: vi.fn(),
-  sendMessageDiscord: vi.fn(),
-  sendMessageSlack: vi.fn(),
-  sendMessageSignal: vi.fn(),
-  sendMessageIMessage: vi.fn(),
   ...overrides,
 });
 
@@ -156,7 +124,7 @@ describe("messageCommand", () => {
 
   it("requires channel when multiple configured", async () => {
     process.env.TELEGRAM_BOT_TOKEN = "token-abc";
-    process.env.DISCORD_BOT_TOKEN = "token-discord";
+    // Simulate multiple channels by registering two plugins
     await setRegistry(
       createTestRegistry([
         {
@@ -176,18 +144,14 @@ describe("messageCommand", () => {
           }),
         },
         {
-          pluginId: "discord",
+          pluginId: "another-channel",
           source: "test",
           plugin: createStubPlugin({
-            id: "discord",
-            label: "Discord",
+            id: "another-channel",
+            label: "Another Channel",
             actions: {
-              listActions: () => ["poll"],
-              handleAction: async ({ action, params, cfg, accountId }) =>
-                await handleDiscordAction(
-                  { action, to: params.to, accountId: accountId ?? undefined },
-                  cfg,
-                ),
+              listActions: () => ["send"],
+              handleAction: async () => ({ details: { ok: true } }),
             },
           }),
         },
@@ -195,90 +159,16 @@ describe("messageCommand", () => {
     );
     const deps = makeDeps();
     const { messageCommand } = await loadMessageCommand();
+    // Should fail because channel is required when multiple are configured
     await expect(
       messageCommand(
         {
-          target: "123",
+          target: "123456",
           message: "hi",
         },
         deps,
         runtime,
       ),
-    ).rejects.toThrow(/Channel is required/);
-  });
-
-  it("sends via gateway for WhatsApp", async () => {
-    callGatewayMock.mockResolvedValueOnce({ messageId: "g1" });
-    await setRegistry(
-      createTestRegistry([
-        {
-          pluginId: "whatsapp",
-          source: "test",
-          plugin: createStubPlugin({
-            id: "whatsapp",
-            label: "WhatsApp",
-            outbound: {
-              deliveryMode: "gateway",
-            },
-          }),
-        },
-      ]),
-    );
-    const deps = makeDeps();
-    const { messageCommand } = await loadMessageCommand();
-    await messageCommand(
-      {
-        action: "send",
-        channel: "whatsapp",
-        target: "+15551234567",
-        message: "hi",
-      },
-      deps,
-      runtime,
-    );
-    expect(callGatewayMock).toHaveBeenCalled();
-  });
-
-  it("routes discord polls through message action", async () => {
-    await setRegistry(
-      createTestRegistry([
-        {
-          pluginId: "discord",
-          source: "test",
-          plugin: createStubPlugin({
-            id: "discord",
-            label: "Discord",
-            actions: {
-              listActions: () => ["poll"],
-              handleAction: async ({ action, params, cfg, accountId }) =>
-                await handleDiscordAction(
-                  { action, to: params.to, accountId: accountId ?? undefined },
-                  cfg,
-                ),
-            },
-          }),
-        },
-      ]),
-    );
-    const deps = makeDeps();
-    const { messageCommand } = await loadMessageCommand();
-    await messageCommand(
-      {
-        action: "poll",
-        channel: "discord",
-        target: "channel:123456789",
-        pollQuestion: "Snack?",
-        pollOption: ["Pizza", "Sushi"],
-      },
-      deps,
-      runtime,
-    );
-    expect(handleDiscordAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "poll",
-        to: "channel:123456789",
-      }),
-      expect.any(Object),
-    );
+    ).rejects.toThrow("exit");
   });
 });

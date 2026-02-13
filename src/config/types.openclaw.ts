@@ -5,12 +5,7 @@ import type { DiagnosticsConfig, LoggingConfig, SessionConfig, WebConfig } from 
 import type { BrowserConfig } from "./types.browser.js";
 import type { ChannelsConfig } from "./types.channels.js";
 import type { CronConfig } from "./types.cron.js";
-import type {
-  CanvasHostConfig,
-  DiscoveryConfig,
-  GatewayConfig,
-  TalkConfig,
-} from "./types.gateway.js";
+import type { DiscoveryConfig, GatewayConfig, TalkConfig } from "./types.gateway.js";
 import type { HooksConfig } from "./types.hooks.js";
 import type { MemoryConfig } from "./types.memory.js";
 import type {
@@ -20,7 +15,6 @@ import type {
   MessagesConfig,
 } from "./types.messages.js";
 import type { ModelsConfig } from "./types.models.js";
-import type { NodeHostConfig } from "./types.node-host.js";
 import type { PluginsConfig } from "./types.plugins.js";
 import type { SkillsConfig } from "./types.skills.js";
 import type { ToolsConfig } from "./types.tools.js";
@@ -78,7 +72,6 @@ export type OpenClawConfig = {
   skills?: SkillsConfig;
   plugins?: PluginsConfig;
   models?: ModelsConfig;
-  nodeHost?: NodeHostConfig;
   agents?: AgentsConfig;
   tools?: ToolsConfig;
   bindings?: AgentBinding[];
@@ -93,7 +86,6 @@ export type OpenClawConfig = {
   cron?: CronConfig;
   hooks?: HooksConfig;
   discovery?: DiscoveryConfig;
-  canvasHost?: CanvasHostConfig;
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;

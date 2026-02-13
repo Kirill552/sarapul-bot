@@ -61,8 +61,6 @@ export default defineConfig({
         "src/agents/sandbox.ts",
         "src/agents/skills-install.ts",
         "src/agents/pi-tool-definition-adapter.ts",
-        "src/agents/tools/discord-actions*.ts",
-        "src/agents/tools/slack-actions.ts",
 
         // Gateway server integration surfaces are intentionally validated via manual/e2e runs.
         "src/gateway/control-ui.ts",
@@ -83,10 +81,6 @@ export default defineConfig({
         "src/tui/**",
         "src/wizard/**",
         // Channel surfaces are largely integration-tested (or manually validated).
-        "src/discord/**",
-        "src/imessage/**",
-        "src/signal/**",
-        "src/slack/**",
         "src/browser/**",
         "src/channels/web/**",
         "src/telegram/index.ts",

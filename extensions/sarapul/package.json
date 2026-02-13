@@ -1,0 +1,19 @@
+{
+  "name": "@openclaw/sarapul",
+  "version": "2026.2.13",
+  "description": "Sarapul News Bot tools plugin for OpenClaw",
+  "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48",
+    "linkedom": "^0.18.12"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "install": {
+      "localPath": "extensions/sarapul"
+    }
+  }
+}

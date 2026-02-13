@@ -11,8 +11,6 @@ import type { HooksConfigResolved } from "./hooks.js";
 import type { DedupeEntry } from "./server-shared.js";
 import type { GatewayTlsRuntime } from "./server/tls.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
-import { CANVAS_HOST_PATH } from "../canvas-host/a2ui.js";
-import { type CanvasHostHandler, createCanvasHostHandler } from "../canvas-host/server.js";
 import { resolveGatewayListenHosts } from "./net.js";
 import { createGatewayBroadcaster } from "./server-broadcast.js";
 import {
@@ -42,14 +40,11 @@ export async function createGatewayRuntimeState(params: {
   pluginRegistry: PluginRegistry;
   deps: CliDeps;
   canvasRuntime: RuntimeEnv;
-  canvasHostEnabled: boolean;
-  allowCanvasHostInTests?: boolean;
   logCanvas: { info: (msg: string) => void; warn: (msg: string) => void };
   log: { info: (msg: string) => void; warn: (msg: string) => void };
   logHooks: ReturnType<typeof createSubsystemLogger>;
   logPlugins: ReturnType<typeof createSubsystemLogger>;
 }): Promise<{
-  canvasHost: CanvasHostHandler | null;
   httpServer: HttpServer;
   httpServers: HttpServer[];
   httpBindHosts: string[];
@@ -86,27 +81,6 @@ export async function createGatewayRuntimeState(params: {
   chatAbortControllers: Map<string, ChatAbortControllerEntry>;
   toolEventRecipients: ReturnType<typeof createToolEventRecipientRegistry>;
 }> {
-  let canvasHost: CanvasHostHandler | null = null;
-  if (params.canvasHostEnabled) {
-    try {
-      const handler = await createCanvasHostHandler({
-        runtime: params.canvasRuntime,
-        rootDir: params.cfg.canvasHost?.root,
-        basePath: CANVAS_HOST_PATH,
-        allowInTests: params.allowCanvasHostInTests,
-        liveReload: params.cfg.canvasHost?.liveReload,
-      });
-      if (handler.rootDir) {
-        canvasHost = handler;
-        params.logCanvas.info(
-          `canvas host mounted at http://${params.bindHost}:${params.port}${CANVAS_HOST_PATH}/ (root ${handler.rootDir})`,
-        );
-      }
-    } catch (err) {
-      params.logCanvas.warn(`canvas host failed to start: ${String(err)}`);
-    }
-  }
-
   const clients = new Set<GatewayWsClient>();
   const { broadcast, broadcastToConnIds } = createGatewayBroadcaster({ clients });
 
@@ -128,7 +102,6 @@ export async function createGatewayRuntimeState(params: {
   const httpBindHosts: string[] = [];
   for (const host of bindHosts) {
     const httpServer = createGatewayHttpServer({
-      canvasHost,
       clients,
       controlUiEnabled: params.controlUiEnabled,
       controlUiBasePath: params.controlUiBasePath,
@@ -171,7 +144,6 @@ export async function createGatewayRuntimeState(params: {
     attachGatewayUpgradeHandler({
       httpServer: server,
       wss,
-      canvasHost,
       clients,
       resolvedAuth: params.resolvedAuth,
     });
@@ -189,7 +161,6 @@ export async function createGatewayRuntimeState(params: {
   const toolEventRecipients = createToolEventRecipientRegistry();
 
   return {
-    canvasHost,
     httpServer,
     httpServers,
     httpBindHosts,

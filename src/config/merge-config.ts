@@ -1,5 +1,4 @@
 import type { OpenClawConfig } from "./config.js";
-import type { WhatsAppConfig } from "./types.js";
 
 export type MergeSectionOptions<T> = {
   unsetOnUndefined?: Array<keyof T>;
@@ -23,16 +22,16 @@ export function mergeConfigSection<T extends Record<string, unknown>>(
   return next as T;
 }
 
-export function mergeWhatsAppConfig(
+export function mergeTelegramConfig(
   cfg: OpenClawConfig,
-  patch: Partial<WhatsAppConfig>,
-  options?: MergeSectionOptions<WhatsAppConfig>,
+  patch: Partial<NonNullable<NonNullable<OpenClawConfig["channels"]>["telegram"]>>,
+  options?: MergeSectionOptions<NonNullable<NonNullable<OpenClawConfig["channels"]>["telegram"]>>,
 ): OpenClawConfig {
   return {
     ...cfg,
     channels: {
       ...cfg.channels,
-      whatsapp: mergeConfigSection(cfg.channels?.whatsapp, patch, options),
+      telegram: mergeConfigSection(cfg.channels?.telegram, patch, options),
     },
   };
 }

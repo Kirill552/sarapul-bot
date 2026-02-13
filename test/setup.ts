@@ -10,29 +10,20 @@ import type {
 } from "../src/channels/plugins/types.js";
 import type { OpenClawConfig } from "../src/config/config.js";
 import type { OutboundSendDeps } from "../src/infra/outbound/deliver.js";
+import type { PluginRegistry } from "../src/plugins/registry.js";
 import { installProcessWarningFilter } from "../src/infra/warning-filter.js";
 import { setActivePluginRegistry } from "../src/plugins/runtime.js";
-import { createTestRegistry } from "../src/test-utils/channel-plugins.js";
 import { withIsolatedTestHome } from "./test-env.js";
 
 installProcessWarningFilter();
 
 const testEnv = withIsolatedTestHome();
 afterAll(() => testEnv.cleanup());
+
 const pickSendFn = (id: ChannelId, deps?: OutboundSendDeps) => {
   switch (id) {
-    case "discord":
-      return deps?.sendDiscord;
-    case "slack":
-      return deps?.sendSlack;
     case "telegram":
       return deps?.sendTelegram;
-    case "whatsapp":
-      return deps?.sendWhatsApp;
-    case "signal":
-      return deps?.sendSignal;
-    case "imessage":
-      return deps?.sendIMessage;
     default:
       return undefined;
   }
@@ -110,18 +101,8 @@ const createStubPlugin = (params: {
   outbound: createStubOutbound(params.id, params.deliveryMode),
 });
 
-const createDefaultRegistry = () =>
-  createTestRegistry([
-    {
-      pluginId: "discord",
-      plugin: createStubPlugin({ id: "discord", label: "Discord" }),
-      source: "test",
-    },
-    {
-      pluginId: "slack",
-      plugin: createStubPlugin({ id: "slack", label: "Slack" }),
-      source: "test",
-    },
+const createDefaultRegistry = (): PluginRegistry => {
+  const channels: PluginRegistry["channels"] = [
     {
       pluginId: "telegram",
       plugin: {
@@ -136,26 +117,28 @@ const createDefaultRegistry = () =>
       source: "test",
     },
     {
-      pluginId: "whatsapp",
-      plugin: createStubPlugin({
-        id: "whatsapp",
-        label: "WhatsApp",
-        deliveryMode: "gateway",
-        preferSessionLookupForAnnounceTarget: true,
-      }),
+      pluginId: "irc",
+      plugin: createStubPlugin({ id: "irc", label: "IRC" }),
       source: "test",
     },
-    {
-      pluginId: "signal",
-      plugin: createStubPlugin({ id: "signal", label: "Signal" }),
-      source: "test",
-    },
-    {
-      pluginId: "imessage",
-      plugin: createStubPlugin({ id: "imessage", label: "iMessage", aliases: ["imsg"] }),
-      source: "test",
-    },
-  ]);
+  ];
+
+  return {
+    plugins: [],
+    tools: [],
+    hooks: [],
+    typedHooks: [],
+    channels,
+    providers: [],
+    gatewayHandlers: {},
+    httpHandlers: [],
+    httpRoutes: [],
+    cliRegistrars: [],
+    services: [],
+    commands: [],
+    diagnostics: [],
+  };
+};
 
 beforeEach(() => {
   setActivePluginRegistry(createDefaultRegistry());

@@ -2,28 +2,8 @@ import type { LegacyConfigRule } from "./legacy.shared.js";
 
 export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
   {
-    path: ["whatsapp"],
-    message: "whatsapp config moved to channels.whatsapp (auto-migrated on load).",
-  },
-  {
     path: ["telegram"],
     message: "telegram config moved to channels.telegram (auto-migrated on load).",
-  },
-  {
-    path: ["discord"],
-    message: "discord config moved to channels.discord (auto-migrated on load).",
-  },
-  {
-    path: ["slack"],
-    message: "slack config moved to channels.slack (auto-migrated on load).",
-  },
-  {
-    path: ["signal"],
-    message: "signal config moved to channels.signal (auto-migrated on load).",
-  },
-  {
-    path: ["imessage"],
-    message: "imessage config moved to channels.imessage (auto-migrated on load).",
   },
   {
     path: ["msteams"],
@@ -32,7 +12,7 @@ export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
   {
     path: ["routing", "allowFrom"],
     message:
-      "routing.allowFrom was removed; use channels.whatsapp.allowFrom instead (auto-migrated on load).",
+      "routing.allowFrom was removed; use channels.telegram.allowFrom instead (auto-migrated on load).",
   },
   {
     path: ["routing", "bindings"],
@@ -55,7 +35,7 @@ export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
   {
     path: ["routing", "groupChat", "requireMention"],
     message:
-      'routing.groupChat.requireMention was removed; use channels.whatsapp/telegram/imessage groups defaults (e.g. channels.whatsapp.groups."*".requireMention) instead (auto-migrated on load).',
+      'routing.groupChat.requireMention was removed; use channels.telegram groups defaults (e.g. channels.telegram.groups."*".requireMention) instead (auto-migrated on load).',
   },
   {
     path: ["routing", "groupChat", "mentionPatterns"],

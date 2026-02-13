@@ -7,18 +7,10 @@ import {
   type ServerResponse,
 } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import type { CanvasHostHandler } from "../canvas-host/server.js";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
 import { resolveAgentAvatar } from "../agents/identity-avatar.js";
-import {
-  A2UI_PATH,
-  CANVAS_HOST_PATH,
-  CANVAS_WS_PATH,
-  handleA2uiHttpRequest,
-} from "../canvas-host/a2ui.js";
 import { loadConfig } from "../config/config.js";
-import { handleSlackHttpRequest } from "../slack/http/index.js";
 import { authorizeGatewayConnect, isLocalDirectRequest, type ResolvedGatewayAuth } from "./auth.js";
 import {
   handleControlUiAvatarRequest,
@@ -72,61 +64,6 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
-}
-
-function isCanvasPath(pathname: string): boolean {
-  return (
-    pathname === A2UI_PATH ||
-    pathname.startsWith(`${A2UI_PATH}/`) ||
-    pathname === CANVAS_HOST_PATH ||
-    pathname.startsWith(`${CANVAS_HOST_PATH}/`) ||
-    pathname === CANVAS_WS_PATH
-  );
-}
-
-function hasAuthorizedWsClientForIp(clients: Set<GatewayWsClient>, clientIp: string): boolean {
-  for (const client of clients) {
-    if (client.clientIp && client.clientIp === clientIp) {
-      return true;
-    }
-  }
-  return false;
-}
-
-async function authorizeCanvasRequest(params: {
-  req: IncomingMessage;
-  auth: ResolvedGatewayAuth;
-  trustedProxies: string[];
-  clients: Set<GatewayWsClient>;
-}): Promise<boolean> {
-  const { req, auth, trustedProxies, clients } = params;
-  if (isLocalDirectRequest(req, trustedProxies)) {
-    return true;
-  }
-
-  const token = getBearerToken(req);
-  if (token) {
-    const authResult = await authorizeGatewayConnect({
-      auth: { ...auth, allowTailscale: false },
-      connectAuth: { token, password: token },
-      req,
-      trustedProxies,
-    });
-    if (authResult.ok) {
-      return true;
-    }
-  }
-
-  const clientIp = resolveGatewayClientIp({
-    remoteAddr: req.socket?.remoteAddress ?? "",
-    forwardedFor: getHeader(req, "x-forwarded-for"),
-    realIp: getHeader(req, "x-real-ip"),
-    trustedProxies,
-  });
-  if (!clientIp) {
-    return false;
-  }
-  return hasAuthorizedWsClientForIp(clients, clientIp);
 }
 
 export type HooksRequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
@@ -290,7 +227,6 @@ export function createHooksRequestHandler(
 }
 
 export function createGatewayHttpServer(opts: {
-  canvasHost: CanvasHostHandler | null;
   clients: Set<GatewayWsClient>;
   controlUiEnabled: boolean;
   controlUiBasePath: string;
@@ -304,7 +240,6 @@ export function createGatewayHttpServer(opts: {
   tlsOptions?: TlsOptions;
 }): HttpServer {
   const {
-    canvasHost,
     clients,
     controlUiEnabled,
     controlUiBasePath,
@@ -333,7 +268,6 @@ export function createGatewayHttpServer(opts: {
     try {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
-      const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
       if (await handleHooksRequest(req, res)) {
         return;
       }
@@ -345,13 +279,12 @@ export function createGatewayHttpServer(opts: {
       ) {
         return;
       }
-      if (await handleSlackHttpRequest(req, res)) {
-        return;
-      }
+
       if (handlePluginRequest) {
         // Channel HTTP endpoints are gateway-auth protected by default.
         // Non-channel plugin routes remain plugin-owned and must enforce
         // their own auth when exposing sensitive functionality.
+        const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
         if (requestPath.startsWith("/api/channels/")) {
           const token = getBearerToken(req);
           const authResult = await authorizeGatewayConnect({
@@ -387,26 +320,6 @@ export function createGatewayHttpServer(opts: {
             trustedProxies,
           })
         ) {
-          return;
-        }
-      }
-      if (canvasHost) {
-        if (isCanvasPath(requestPath)) {
-          const ok = await authorizeCanvasRequest({
-            req,
-            auth: resolvedAuth,
-            trustedProxies,
-            clients,
-          });
-          if (!ok) {
-            sendUnauthorized(res);
-            return;
-          }
-        }
-        if (await handleA2uiHttpRequest(req, res)) {
-          return;
-        }
-        if (await canvasHost.handleHttpRequest(req, res)) {
           return;
         }
       }
@@ -446,39 +359,13 @@ export function createGatewayHttpServer(opts: {
 export function attachGatewayUpgradeHandler(opts: {
   httpServer: HttpServer;
   wss: WebSocketServer;
-  canvasHost: CanvasHostHandler | null;
   clients: Set<GatewayWsClient>;
   resolvedAuth: ResolvedGatewayAuth;
 }) {
-  const { httpServer, wss, canvasHost, clients, resolvedAuth } = opts;
+  const { httpServer, wss } = opts;
   httpServer.on("upgrade", (req, socket, head) => {
-    void (async () => {
-      if (canvasHost) {
-        const url = new URL(req.url ?? "/", "http://localhost");
-        if (url.pathname === CANVAS_WS_PATH) {
-          const configSnapshot = loadConfig();
-          const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
-          const ok = await authorizeCanvasRequest({
-            req,
-            auth: resolvedAuth,
-            trustedProxies,
-            clients,
-          });
-          if (!ok) {
-            socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
-            socket.destroy();
-            return;
-          }
-        }
-        if (canvasHost.handleUpgrade(req, socket, head)) {
-          return;
-        }
-      }
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit("connection", ws, req);
-      });
-    })().catch(() => {
-      socket.destroy();
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
     });
   });
 }

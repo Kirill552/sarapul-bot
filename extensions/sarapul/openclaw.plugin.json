@@ -1,0 +1,8 @@
+{
+  "id": "sarapul",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
